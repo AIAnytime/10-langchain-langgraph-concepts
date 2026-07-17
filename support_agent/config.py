@@ -48,7 +48,7 @@ def get_llm(model: str | None = None, temperature: float = 0.2) -> ChatOpenAI:
         temperature=temperature,
         # OpenRouter likes these optional headers for attribution / rankings.
         default_headers={
-            "HTTP-Referer": "https://github.com/your-handle/langgraph-10-concepts",
+            "HTTP-Referer": "https://github.com/AIAnytime/10-langchain-langgraph-concepts",
             "X-Title": "LangGraph 10 Concepts Tutorial",
         },
     )
