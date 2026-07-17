@@ -1,0 +1,325 @@
+10 Essential LangChain & LangGraph Concepts for AI Engineers
+
+Most AI applications start with a simple demonstration: users ask questions, LLM provides answers, and everyone thinks it's amazing.
+
+However, the application needs to retrieve documents, invoke tools, handle faults, route requests, remember historical operations, and introduce human review at key decision-making nodes. At this point, the chatbot has become a workflow.
+
+Many AI projects get stuck at this transition; the gap between the demo and the production system usually lies not in the model itself, but in the underlying architecture.
+
+LangChain and LangGraph are two of the most widely used frameworks for building modern AI applications. Together, they provide the core components needed to build reliable, scalable, and maintainable AI systems.
+
+If you're building an AI Agent in 2026, make sure you understand these concepts before writing your next workflow.
+
+
+1. State is the foundation of every Agent.
+Why do production-level agents need shared state, rather than isolated prompts? A beginner's idea of ​​an AI agent typically looks like this:
+
+ 用户输入
+     ↓
+ LLM
+     ↓
+ 响应
+Production-level agents are completely different—they continuously maintain state throughout the workflow.
+
+Take a customer support agent as an example:
+
+ from typing import TypedDict
+
+class SupportState(TypedDict):
+    ticket_id: str
+    customer_message: str
+    customer_tier: str
+    retrieved_articles: list
+    sentiment_score: float
+    draft_response: str
+    escalation_required: bool
+     final_response: str
+During the workflow process, different nodes will continuously update this shared state:
+
+ {
+    "ticket_id": "TKT-9012",
+    "customer_message": "My payment failed twice",
+    "customer_tier": "Enterprise",
+    "retrieved_articles": [
+        "Payment Retry Policy",
+        "Credit Card Validation"
+    ],
+    "sentiment_score": 0.91,
+    "draft_response":
+        "Please retry the payment...",
+    "escalation_required": False
+ }
+Without state, an agent lacks context, making debugging impossible and multi-step workflows highly prone to crashing. With state, each step can perceive what happened beforehand, making the entire system predictable.
+
+Think of the state as a shared memory throughout the workflow.
+
+2. A node is simply a function.
+Many people believe that AI Agents are driven by some kind of magical framework, but in reality, most nodes are just ordinary functions.
+
+A search node:
+
+ def retrieve_documents(state):
+     docs = vector_store.similarity_search(
+         state["user_query"],
+         k=5
+     )
+     return {
+         "retrieved_docs": docs
+     }
+A reordered node:
+
+ def rerank_documents(state):
+     reranked = reranker.rank(
+         query=state["user_query"],
+         docs=state["retrieved_docs"]
+     )
+     return {
+         "retrieved_docs": reranked[:3]
+     }
+A generated node:
+
+ def generate_answer(state):
+     response = llm.invoke(
+         state["retrieved_docs"]
+     )
+     return {
+         "draft_answer": response
+     }
+String them together:
+
+ 检索
+     ↓
+ 重排序
+     ↓
+ 生成
+     ↓
+ 验证
+Each node does only one thing. The power comes from the orchestration, not the complexity of individual nodes.
+
+3. Chain and Graph
+Many LangChain applications are built starting from the chain:
+
+ Prompt
+    ↓
+ LLM
+    ↓
+ 解析器
+    ↓
+ 响应
+For simple and straightforward processes, chains are perfectly adequate. However, when the workflow involves multiple agents, conditional branches, manual approvals, retry logic, or long-running tasks, linear structures begin to fall short.
+
+Graphs can handle these scenarios naturally:
+
+ 路由器
+              │
+     ┌────────┴────────┐
+     ▼                 ▼
+研究 Agent        支持 Agent
+     │                 │
+     └────────┬────────┘
+              ▼
+          最终响应
+An ERP migration assistant's workflow might involve: analyzing requirements, generating test cases, verifying coverage, routing issues to the appropriate experts, and finally requesting manual approval. This process is inherently graph-like; forcibly fitting it into a linear chain will only make it increasingly difficult to maintain.
+
+The more complex the system, the more indispensable the graph becomes.
+
+4. Routing is superior to excessively long prompts.
+One of the most common mistakes is to mold an assistant into a jack-of-all-trades who knows everything:
+
+ 你是一个账单专家、
+ 技术支持工程师、
+ 销售代表、
+ 产品专家
+ 和合规顾问……
+This approach is difficult to extend. A better solution is routing:
+
+ def classify_request(state):
+    query = state["user_query"]
+        if "billing" in query:
+            return "billing_agent"
+        if "error" in query:
+            return "technical_agent"
+        if "pricing" in query:
+            return "sales_agent"
+         return "general_agent"
+Workflow:
+
+ 用户请求
+       │
+       ▼
+     路由
+       │
+  ┌────┼────┐
+  ▼    ▼    ▼
+ 技术 账单  销售
+Shorter prompts mean higher accuracy, lower token costs, and easier-to-maintain and predictable outputs. The best AI systems are typically a team of experts, not a single all-powerful entity trying to solve every problem.
+
+5. Retrieval is not just vector search
+Many people's understanding of RAG is limited to:
+
+ 向量搜索
+       ↓
+ LLM
+       ↓
+ 答案
+This is sufficient for the demonstration, but an additional layer is needed for the production system:
+
+ 检索
+     ↓
+ 重排序
+     ↓
+ 过滤
+     ↓
+ 生成
+Specifically:
+
+ docs=vector_store.search(
+    query,
+    k=20
+)
+reranked_docs=reranker.rank(
+    query,
+    docs
+)
+ top_docs=reranked_docs[:5]
+A vector database might return 20 relevant documents, but only about 5 of them may actually contain the information you need. Reordering is designed to solve this problem, and its impact on answer quality is far greater than most people anticipate.
+
+An enterprise knowledge base with 10 million documents often undergoes multiple processing steps, including hybrid search, metadata filtering, reordering, and context compression, before being handed over to an LLM (Local Library Management System). A good RAG (Research and Acquisition) system is first and foremost a retrieval system, and only secondarily an AI system.
+
+6. Structured outputs avoid costly failures.
+Every AI engineer has encountered a similar situation:
+
+The prompt message says "Return valid JSON", but the model returns:
+
+ {
+   "priority": "high"
+   "category": "billing"
+ }
+The parser crashed and the entire workflow failed because a comma was missing.
+
+Switch to structured output:
+
+ from pydantic import BaseModel
+ 
+ class TicketClassification(BaseModel):
+     category: str
+     severity: str
+     assigned_team: str
+     confidence_score: float
+Generate validated output:
+
+ result = llm.with_structured_output(
+     TicketClassification
+ ).invoke(ticket_text)
+result:
+
+ {
+   "category": "Payment",
+   "severity": "High",
+   "assigned_team": "Billing",
+   "confidence_score": 0.94
+ }
+Schema should be mandatory, not optional, whenever other systems consume the output of AI.
+
+7. Streaming output changes the user's perception of speed.
+Users dislike waiting. Fifteen seconds of nothing on the screen, or an immediate, flowing response. The total time may be exactly the same, but users almost always prefer the latter.
+
+Streaming output is designed to achieve this experience:
+
+ for chunk in model.stream(prompt):
+     print(chunk)
+For more complex workflows, progress can be proactively pushed at each stage:
+
+ yield "正在分析需求……"
+ yield "正在检索文档……"
+ yield "正在生成响应……"
+ yield "正在验证结果……"
+ yield final_response
+For example, in scenarios where hundreds of migration test cases are generated in batches—with real-time progress display—user satisfaction can vary significantly. Perceived performance is often more important than actual performance.
+
+8. Memory is not just about dialogue with history.
+Most developers equate memory with chat logs:
+
+ messages= [...]
+A true agent requires operational memory. Let's take a programming agent as an example:
+
+ {
+    "repository": "payments-api",
+    "modified_files": [
+        "payment.service.ts",
+        "retry.handler.ts"
+    ],
+    "failed_tests": [
+        "payment_retry.spec.ts"
+    ],
+    "last_fix_attempt": "...",
+    "pull_request_url": "..."
+ }
+The agent remembers previous decisions, tool outputs, failed executions, retrieved documents, and the current state of the repository. This allows it to maintain consistent judgment across multiple steps, rather than starting from scratch each time. This memory transforms isolated interactions into a truly intelligent workflow.
+
+9. Checkpointing supports long-running workflows.
+Real systems can malfunction: model timeouts, API unavailability, and manual review taking hours or even days.
+
+Without checkpoints, a failure means starting all over again; with checkpoints, you can continue from where you left off.
+
+ from langgraph.checkpoint.memory import MemorySaver
+ 
+ checkpointer = MemorySaver()
+ graph = workflow.compile(
+     checkpointer=checkpointer
+ )
+When it resumes later:
+
+ graph.invoke(
+     input_data,
+     config={
+         "thread_id": "loan-123"
+     }
+ )
+Take the loan approval process as an example:
+
+ 文件收集
+        ↓
+检查点
+        ↓
+风险评估
+        ↓
+检查点
+        ↓
+人工审批
+        ↓
+ 最终决策
+This process can take hours or even days. The existence of checkpoints ensures that any failures along the way will not cause the progress already made to be lost.
+
+10. Human-in-the-Loop collaboration is the true future of AI.
+One of the most common misconceptions about AI agents is that they should operate completely autonomously. Most enterprise systems actually require human oversight.
+
+ defapproval_node(state):
+   ifstate["risk_score"] >0.8:
+           return"human_review"
+      return"auto_approve"
+Workflow:
+
+ AI 分析
+       ↓
+ 风险评估
+       ↓
+ 人工审核
+       ↓
+ 继续工作流
+Loan approval, legal contract analysis, ERP migration verification, medical advice, financial auditing—human intervention is the norm, not the exception, in these scenarios. The most successful AI systems do not replace humans, but help humans make better decisions faster.
+
+Summarize
+In the process of building AI systems, a conclusion that has been repeatedly confirmed is that reliable AI applications are rarely determined by models, but by workflow design.
+
+State
+Node
+Graph
+Routing
+Retrieval
+Structured Outputs
+Memory
+Checkpointing
+Manual review
+For improving AI systems, mastering these concepts is far more effective than endlessly tweaking prompts. Models will continue to evolve, and good architecture will remain crucial. If you're building an AI agent in 2026, start here.
+

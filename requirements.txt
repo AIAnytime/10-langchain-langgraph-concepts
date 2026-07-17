@@ -1,0 +1,12 @@
+# ── Core LangChain / LangGraph stack ─────────────────────────────
+langgraph==1.2.9            # graph orchestration, checkpointing, human-in-the-loop
+langchain-core==1.4.9       # messages, runnables, structured output
+langchain-openai==1.3.5     # OpenAI-compatible client (used here for OpenRouter)
+openai==2.46.0              # underlying SDK that langchain-openai calls
+
+# ── Config, validation, UX ───────────────────────────────────────
+python-dotenv==1.2.2        # load OPENROUTER_API_KEY from .env
+pydantic==2.13.4            # structured / validated LLM outputs (concept 6)
+rich==15.0.0                # pretty CLI demo
+streamlit==1.59.2           # web UI demo
+grandalf==0.8               # renders the LangGraph structure as ASCII art
