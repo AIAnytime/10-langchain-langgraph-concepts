@@ -114,3 +114,7 @@ app.py               full agent — Streamlit web UI
   In production, replace `retrieval.retrieve()` with a real vector store — the
   rerank/filter stages stay the same.
 - `.env` is git-ignored. Never commit your API key.
+
+## License
+
+Proprietary — all rights reserved. This code is published for viewing and evaluation only; no use, copying, modification, redistribution, commercial use, or use as AI/ML training data without written permission. See [LICENSE](LICENSE). Commercial licensing: aianytime07@gmail.com · sonu@aianytime.net.
